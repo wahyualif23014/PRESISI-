@@ -1,57 +1,57 @@
-// lib/presentation/main_layout.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../shared/widgets/sidebar_menu.dart'; 
 
-// 1. CLASS NOTIFIER: Pengganti StateProvider untuk Riverpod terbaru
+// 1. CONTROLLER SIDEBAR
 class SidebarController extends Notifier<bool> {
   @override
-  bool build() {
-    return true; // Default state: Sidebar Terbuka (true)
-  }
-
-  void toggle() {
-    state = !state; // Membalik nilai (true jadi false, dst)
-  }
+  bool build() => true;
+  void toggle() => state = !state;
 }
 
-// 2. PROVIDER: Daftarkan Notifier di atas
 final sidebarOpenProvider = NotifierProvider<SidebarController, bool>(SidebarController.new);
 
+// 2. MAIN LAYOUT
 class MainLayout extends ConsumerWidget {
   final Widget child;
-
   const MainLayout({super.key, required this.child});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 3. WATCH: Memantau status sidebar (true/false)
-    final isSidebarOpen = ref.watch(sidebarOpenProvider);
+    final bool isMobile = MediaQuery.of(context).size.width < 800;
+    final bool isSidebarOpen = ref.watch(sidebarOpenProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F9), 
+      backgroundColor: const Color(0xFFF4F6F9),
+      drawer: isMobile ? const Drawer(child: SidebarMenu()) : null,
+      
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 4. LOGIC: Tampilkan sidebar hanya jika isSidebarOpen == true
-          if (isSidebarOpen) 
-            const SidebarMenu(),
+          // Sidebar Desktop (Fixed)
+          if (!isMobile && isSidebarOpen)
+            const SizedBox(
+              width: 260,
+              child: SidebarMenu(),
+            ),
 
-          // 5. MAIN CONTENT AREA
+          // Area Konten Utama
           Expanded(
             child: Column(
               children: [
-                // Header (Pass 'ref' untuk akses tombol)
-                _buildTopBar(context, ref),
-
-                // Isi Halaman
+                // TopBar (Header dengan tombol Profil/Notif)
+                _TopBar(isMobile: isMobile),
+                
+                // Konten Halaman (Child dari Router)
                 Expanded(
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(20.0), 
-                    child: child, 
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.only(topLeft: Radius.circular(16)),
+                    child: Container(
+                      color: const Color(0xFFF4F6F9),
+                      width: double.infinity,
+                      child: child, 
+                    ),
                   ),
                 ),
               ],
@@ -61,77 +61,170 @@ class MainLayout extends ConsumerWidget {
       ),
     );
   }
+}
 
-  // Widget Header
-  Widget _buildTopBar(BuildContext context, WidgetRef ref) {
+// 3. WIDGET TOPBAR (Private)
+class _TopBar extends ConsumerWidget {
+  final bool isMobile;
+  const _TopBar({required this.isMobile});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final String location = GoRouterState.of(context).uri.toString();
-    final String title = _getTitleFromRoute(location);
-    
-    // Ambil status untuk menentukan icon
     final isSidebarOpen = ref.watch(sidebarOpenProvider);
 
-    return Container(
-      height: 60,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.black12)), 
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Bagian Kiri: Tombol Menu & Judul
-          Row(
-            children: [
-              // TOMBOL TOGGLE SIDEBAR
-              IconButton(
-                icon: Icon(
-                  isSidebarOpen ? Icons.menu_open : Icons.menu, 
-                  color: Colors.black54
-                ),
-                onPressed: () {
-                  // Memanggil fungsi toggle dari SidebarController
-                  ref.read(sidebarOpenProvider.notifier).toggle();
-                },
-              ),
-              const SizedBox(width: 10),
-              
-              // Judul Halaman
-              Text(
-                title.toUpperCase(),
-                style: const TextStyle(
-                  color: Colors.black87,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  letterSpacing: 1.1,
-                ),
-              ),
-            ],
-          ),
+    // TODO: Hubungkan data ini dengan Provider User Anda
+    const String userName = "Budi Santoso";
+    const String? profileImageUrl = null;
+    const int notificationCount = 3;
 
-          // Area Kanan Header
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications_outlined, color: Colors.grey),
-                onPressed: () {},
+    return Container(
+      height: 80, 
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: isMobile ? const Color(0xFFF4F6F9) : Colors.white,
+        border: isMobile ? null : const Border(bottom: BorderSide(color: Colors.black12, width: 0.5)),
+      ),
+      child: SafeArea( 
+        bottom: false,
+        child: Row(
+          children: [
+            // Tombol Menu Sidebar
+            IconButton(
+              icon: Icon(
+                isMobile 
+                    ? Icons.menu 
+                    : (isSidebarOpen ? Icons.menu_open : Icons.menu),
+                color: Colors.black87
               ),
-              const SizedBox(width: 8),
-              const Icon(Icons.help_outline, color: Colors.grey),
-            ],
-          )
-        ],
+              onPressed: () {
+                if (isMobile) {
+                  Scaffold.of(context).openDrawer();
+                } else {
+                  ref.read(sidebarOpenProvider.notifier).toggle();
+                }
+              },
+            ),
+            const SizedBox(width: 12),
+            
+            // Judul Halaman
+            Expanded(
+              child: Text(
+                _getTitle(location).toUpperCase(),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14, 
+                  letterSpacing: 0.5,
+                  color: Colors.black87,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+
+            // Action Buttons (Notif & Profil)
+            Row(
+              children: [
+                _HeaderNotificationButton(
+                  count: notificationCount,
+                  onTap: () => print("Notif tapped"),
+                ),
+                const SizedBox(width: 12),
+                _HeaderProfileButton(
+                  userName: userName,
+                  imageUrl: profileImageUrl,
+                  onTap: () => print("Profile tapped"),
+                ),
+              ],
+            )
+          ],
+        ),
       ),
     );
   }
 
-  String _getTitleFromRoute(String location) {
+  String _getTitle(String location) {
     if (location.contains('dashboard')) return 'Dashboard';
     if (location.contains('units')) return 'Tingkat Kesatuan';
-    if (location.contains('regions')) return 'Wilayah Administratif';
-    if (location.contains('commodities')) return 'Komoditi Lahan';
-    if (location.contains('personnel')) return 'Data Personel';
+    if (location.contains('regions')) return 'Wilayah';
+    if (location.contains('commodities')) return 'Komoditi';
+    if (location.contains('personnel')) return 'Personel';
     if (location.contains('land')) return 'Kelola Lahan';
-    return 'Aplikasi Presisi';
+    return 'Presisi';
+  }
+}
+
+// 4. WIDGET PENDUKUNG (Private)
+class _HeaderNotificationButton extends StatelessWidget {
+  final int count;
+  final VoidCallback onTap;
+
+  const _HeaderNotificationButton({required this.count, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isSmall = MediaQuery.of(context).size.width < 768;
+    return SizedBox(
+      width: isSmall ? 40 : 44,
+      height: isSmall ? 40 : 44,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(30),
+              child: Center(
+                child: Icon(Icons.notifications_outlined, color: Colors.black54, size: 22),
+              ),
+            ),
+          ),
+          if (count > 0)
+            Positioned(
+              right: 0, top: 0,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                child: Text('$count', style: const TextStyle(color: Colors.white, fontSize: 10)),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeaderProfileButton extends StatelessWidget {
+  final String userName;
+  final String? imageUrl;
+  final VoidCallback onTap;
+
+  const _HeaderProfileButton({required this.userName, this.imageUrl, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isSmall = MediaQuery.of(context).size.width < 768;
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        width: isSmall ? 40 : 44,
+        height: isSmall ? 40 : 44,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.blueAccent.withOpacity(0.3), width: 2),
+          image: imageUrl != null 
+            ? DecorationImage(image: NetworkImage(imageUrl!), fit: BoxFit.cover) 
+            : null,
+          color: Colors.blueAccent,
+        ),
+        child: imageUrl == null
+          ? Center(child: Text(userName.isNotEmpty ? userName[0] : 'U', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)))
+          : null,
+      ),
+    );
   }
 }

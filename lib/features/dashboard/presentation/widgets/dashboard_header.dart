@@ -1,24 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'dart:async'; // Untuk Timer
-
+import 'dart:async';
 
 class DashboardHeader extends StatefulWidget {
   final String userName;
   final String userRole;
-  final String? profileImageUrl;
-  final VoidCallback? onProfileTap;
-  final VoidCallback? onNotificationTap;
-  final int? notificationCount;
 
   const DashboardHeader({
     super.key,
     required this.userName,
     this.userRole = 'Polda Jatim',
-    this.profileImageUrl,
-    this.onProfileTap,
-    this.onNotificationTap,
-    this.notificationCount = 0,
   });
 
   @override
@@ -45,514 +36,279 @@ class _DashboardHeaderState extends State<DashboardHeader> {
   }
 
   void _setupTimer() {
-    _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      if (mounted) {
-        setState(() {
-          _updateDateTime();
-        });
-      }
+    _timer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted) setState(() => _updateDateTime());
     });
   }
 
   void _updateDateTime() {
     final now = DateTime.now();
-    
-    // Format waktu
     _currentTime = DateFormat('HH:mm').format(now);
+    _currentDate = DateFormat('EEEE, d MMMM yyyy', 'id_ID').format(now);
     
-    // Format tanggal
-    _currentDate = DateFormat('EEEE, d MMMM y', 'id_ID').format(now);
-    
-    // Tentukan greeting berdasarkan waktu
     final hour = now.hour;
-    if (hour < 12) {
-      _greeting = 'Selamat Pagi';
-    } else if (hour < 15) {
-      _greeting = 'Selamat Siang';
-    } else if (hour < 18) {
-      _greeting = 'Selamat Sore';
-    } else {
-      _greeting = 'Selamat Malam';
-    }
+    if (hour < 11) _greeting = 'Selamat Pagi';
+    else if (hour < 15) _greeting = 'Selamat Siang';
+    else if (hour < 18) _greeting = 'Selamat Sore';
+    else _greeting = 'Selamat Malam';
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile = screenWidth < 768;
-    final isSmallMobile = screenWidth < 400;
+    final width = MediaQuery.of(context).size.width;
+    final isMobile = width < 768;
+    final isTablet = width >= 768 && width < 1200;
 
     return Container(
       width: double.infinity,
-      padding: isMobile 
-          ? const EdgeInsets.symmetric(horizontal: 16, vertical: 12)
-          : const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(isMobile ? 18 : 21),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200), 
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-            spreadRadius: 1,
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: const Color.fromARGB(255, 68, 69, 71).withOpacity(0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+            spreadRadius: -4,
           ),
         ],
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white,
-            const Color(0xFFF8FAFC),
+      ),
+      child: isMobile 
+        ? _buildMobileLayout() 
+        : _buildDesktopLayout(isTablet),
+    );
+  }
+
+  // --- LAYOUT MOBILE (Vertikal) ---
+  Widget _buildMobileLayout() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            _buildGreetingIcon(size: 48, iconSize: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _greeting,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.userName,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Color(0xFF1E293B),
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Baris pertama: Greeting + Action Buttons
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        const SizedBox(height: 12),
+        _buildRoleBadge(),
+        const SizedBox(height: 20),
+        Divider(height: 1, color: Colors.grey.shade100),
+        const SizedBox(height: 16),
+        
+        // Date & Time Row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildDateWidget(isSmall: true),
+            _buildTimeWidget(isSmall: true),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktopLayout(bool isTablet) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Left Side: Greeting & Profile
+        Expanded(
+          child: Row(
             children: [
-              // Greeting Section
+              _buildGreetingIcon(size: 56, iconSize: 28),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Row(
                       children: [
-                        // Greeting Icon
-                        Icon(
-                          _getGreetingIcon(),
-                          color: const Color(0xFF3B82F6),
-                          size: isMobile ? 18 : 20,
-                        ),
-                        const SizedBox(width: 8),
-                        // Greeting Text
-                        Expanded(
-                          child: Text(
-                            _greeting,
-                            style: TextStyle(
-                              fontSize: isMobile ? 14 : 16,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF1E293B),
-                              letterSpacing: 0.3,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                        Text(
+                          "$_greeting,",
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    // User Name
-                    Text(
-                      widget.userName.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: isMobile ? 18 : 22,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF0F172A),
-                        letterSpacing: 0.5,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-
-              // Action Buttons
-              if (!isSmallMobile)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Notification Button
-                    _buildNotificationButton(context),
-                    const SizedBox(width: 12),
-                    // Profile Button
-                    _buildProfileButton(context),
-                  ],
-                ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          // Baris kedua: Date & Time + Quick Stats (jika ada)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              // Date & Time Section
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Date
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.calendar_today_rounded,
-                          color: const Color(0xFF64748B),
-                          size: isMobile ? 14 : 16,
-                        ),
                         const SizedBox(width: 6),
-                        Expanded(
+                        Flexible(
                           child: Text(
-                            _currentDate,
-                            style: TextStyle(
-                              fontSize: isMobile ? 12 : 14,
-                              color: const Color(0xFF64748B),
-                              fontWeight: FontWeight.w500,
+                            widget.userName,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              color: Color(0xFF0F172A),
+                              fontWeight: FontWeight.w800,
                             ),
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 6),
-                    // Time
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.access_time_rounded,
-                          color: const Color(0xFF64748B),
-                          size: isMobile ? 14 : 16,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          _currentTime,
-                          style: TextStyle(
-                            fontSize: isMobile ? 14 : 18,
-                            color: const Color(0xFF0F172A),
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'WIB',
-                          style: TextStyle(
-                            fontSize: isMobile ? 10 : 12,
-                            color: const Color(0xFF94A3B8),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
+                    _buildRoleBadge(),
                   ],
                 ),
               ),
-
-              // User Role Badge (hanya untuk desktop/tablet)
-              if (!isMobile)
-                Container(
-                  margin: const EdgeInsets.only(left: 12),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: const Color(0xFF10B981).withOpacity(0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: Text(
-                    widget.userRole,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF047857),
-                    ),
-                  ),
-                ),
             ],
           ),
+        ),
 
-          // Action Buttons untuk mobile kecil (jika ada)
-          if (isSmallMobile) ...[
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                _buildNotificationButton(context),
-                const SizedBox(width: 12),
-                _buildProfileButton(context),
-              ],
-            ),
-          ],
-
-          // Separator Line (opsional)
-          const SizedBox(height: 16),
+        if (!isTablet) ...[
           Container(
-            height: 1,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [
-                  Colors.transparent,
-                  Colors.grey.shade200,
-                  Colors.transparent,
-                ],
-              ),
-            ),
+            height: 50,
+            width: 1,
+            color: Colors.grey.shade200,
+            margin: const EdgeInsets.symmetric(horizontal: 24),
           ),
         ],
+
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _buildTimeWidget(isSmall: false),
+            const SizedBox(height: 4),
+            _buildDateWidget(isSmall: false),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // --- WIDGET COMPONENTS (Reusable) ---
+
+  Widget _buildGreetingIcon({required double size, required double iconSize}) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF), 
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFDBEAFE)), 
       ),
+      child: Icon(
+        _getGreetingIcon(),
+        color: const Color(0xFF2563EB), 
+        size: iconSize,
+      ),
+    );
+  }
+
+  Widget _buildRoleBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0FDF4), 
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFBBF7D0)), 
+      ),
+      child: Text(
+        widget.userRole.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF15803D), // Emerald 700
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateWidget({required bool isSmall}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (!isSmall) 
+          Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: Icon(Icons.calendar_today_rounded, size: 14, color: Colors.grey[400]),
+          ),
+        Text(
+          _currentDate,
+          style: TextStyle(
+            fontSize: isSmall ? 13 : 14,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey[500],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTimeWidget({required bool isSmall}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          _currentTime,
+          style: TextStyle(
+            fontSize: isSmall ? 20 : 28, 
+            fontWeight: FontWeight.w800,
+            color: const Color(0xFF1E293B),
+            letterSpacing: -0.5,
+            height: 1,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            'WIB',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[600],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
   IconData _getGreetingIcon() {
     final hour = DateTime.now().hour;
-    if (hour < 12) return Icons.wb_sunny_outlined;
-    if (hour < 15) return Icons.wb_sunny;
-    if (hour < 18) return Icons.wb_twilight_outlined;
-    return Icons.nightlight_round_outlined;
-  }
-
-  Widget _buildNotificationButton(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 768;
-    final hasNotifications = widget.notificationCount! > 0;
-
-    return SizedBox(
-      width: isMobile ? 40 : 44,
-      height: isMobile ? 40 : 44,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-              border: Border.all(
-                color: Colors.grey.shade200,
-                width: 1,
-              ),
-            ),
-            child: Material(
-              color: Colors.transparent,
-              shape: const CircleBorder(),
-              child: InkWell(
-                onTap: widget.onNotificationTap ?? () {},
-                borderRadius: BorderRadius.circular(30),
-                child: Center(
-                  child: Icon(
-                    Icons.notifications_outlined,
-                    color: const Color(0xFF475569),
-                    size: isMobile ? 20 : 22,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // Notification Badge
-          if (hasNotifications)
-            Positioned(
-              right: 0,
-              top: 0,
-              child: Container(
-                width: 18,
-                height: 18,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFEF4444),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Color(0xFFEF4444),
-                      blurRadius: 4,
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Text(
-                    widget.notificationCount! > 9
-                        ? '9+'
-                        : widget.notificationCount.toString(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileButton(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 768;
-
-    return SizedBox(
-      width: isMobile ? 40 : 44,
-      height: isMobile ? 40 : 44,
-      child: Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: const Color(0xFF3B82F6).withOpacity(0.3),
-            width: 2,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF3B82F6).withOpacity(0.2),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Material(
-          shape: const CircleBorder(),
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: widget.onProfileTap ?? () {},
-            borderRadius: BorderRadius.circular(30),
-            child: widget.profileImageUrl != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(30),
-                    child: Image.network(
-                      widget.profileImageUrl!,
-                      width: isMobile ? 40 : 44,
-                      height: isMobile ? 40 : 44,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          _buildDefaultAvatar(),
-                    ),
-                  )
-                : _buildDefaultAvatar(),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDefaultAvatar() {
-    final isMobile = MediaQuery.of(context).size.width < 768;
-    final nameParts = widget.userName.split(' ');
-    final initials = nameParts.length >= 2
-        ? '${nameParts[0][0]}${nameParts[1][0]}'
-        : nameParts.isNotEmpty && nameParts[0].isNotEmpty
-            ? nameParts[0][0]
-            : 'U';
-
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF3B82F6),
-            const Color(0xFF1D4ED8),
-          ],
-        ),
-        shape: BoxShape.circle,
-      ),
-      child: Center(
-        child: Text(
-          initials.toUpperCase(),
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: isMobile ? 14 : 16,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.5,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Versi alternatif yang lebih sederhana (tanpa state)
-class DashboardHeaderSimple extends StatelessWidget {
-  final String userName;
-  final String greeting;
-  final String date;
-
-  const DashboardHeaderSimple({
-    super.key,
-    required this.userName,
-    required this.greeting,
-    required this.date,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF6366F1),
-            const Color(0xFF8B5CF6),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF6366F1).withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            greeting,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.5,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            userName.toUpperCase(),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              const Icon(Icons.calendar_today, color: Colors.white, size: 16),
-              const SizedBox(width: 8),
-              Text(
-                date,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+    if (hour >= 5 && hour < 11) return Icons.wb_sunny_rounded;      
+    if (hour >= 11 && hour < 15) return Icons.wb_sunny_outlined;   
+    if (hour >= 15 && hour < 18) return Icons.wb_twilight_rounded;  
+    return Icons.nightlight_round_rounded;                          
   }
 }
