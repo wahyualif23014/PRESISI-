@@ -4,43 +4,45 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// --- IMPORT FILE ANDA ---
+// Import File Anda
 import 'auth/provider/auth_provider.dart';
-import 'core/router/router_provider.dart';
+import './router/router_provider.dart';
+
+// --- TAMBAHAN BARU: Import Dashboard Provider ---
+// Pastikan path ini sesuai dengan struktur folder Anda
+import './features/dashboard/providers/dashboard_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. Setup Formatting Tanggal
+  // 1. Setup Tanggal
   await initializeDateFormatting('id_ID');
 
-  // 2. Inisialisasi Supabase
+  // 2. Setup Supabase (Gunakan Key Project Anda)
   await Supabase.initialize(
     url: 'https://hbrcteaygmjrzwjyuzje.supabase.co',
     anonKey: 'sb_publishable_iSnXoF0gzV6j3A4-ynRwwQ_ck5tg477',
   );
 
-  // 3. Setup Auth Provider
   final authProvider = AuthProvider();
-  
-  // Cek Auto Login (tunggu sampai selesai)
+
   await authProvider.tryAutoLogin();
 
-  // 4. Setup Router (Masukkan authProvider)
+  // 5. Setup Router (Masukkan provider yang sudah dibuat)
   final appRouter = AppRouter(authProvider);
 
-  // 5. Global Error Handling (PENTING: Agar error tidak bikin blank putih)
-  FlutterError.onError = (FlutterErrorDetails details) {
-    FlutterError.presentError(details);
-    debugPrint(details.toString());
-  };
-
+  // 6. Jalankan Aplikasi
   runApp(
     MultiProvider(
       providers: [
+        // Gunakan .value agar instance tidak dibuat ulang (Auth)
         ChangeNotifierProvider.value(value: authProvider),
+
+        // --- TAMBAHAN BARU: Register Dashboard Provider ---
+        // Ini wajib ada agar DashboardPage bisa membaca datanya
+        ChangeNotifierProvider(create: (_) => DashboardProvider()),
       ],
-      // PENTING: Pastikan appRouter dikirim ke sini!
+      // Kirim router ke MyApp
       child: MyApp(appRouter: appRouter),
     ),
   );
@@ -49,7 +51,6 @@ Future<void> main() async {
 class MyApp extends StatelessWidget {
   final AppRouter appRouter;
 
-  // Constructor wajib menerima appRouter
   const MyApp({super.key, required this.appRouter});
 
   @override
@@ -58,7 +59,7 @@ class MyApp extends StatelessWidget {
       title: 'Sistem Ketahanan Pangan Presisi',
       debugShowCheckedModeBanner: false,
 
-      // --- KONEKSI ROUTER ---
+      // Konfigurasi Router
       routerConfig: appRouter.router,
 
       // Localization
@@ -67,29 +68,23 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('id', 'ID'),
-        Locale('en', 'US'),
-      ],
+      supportedLocales: const [Locale('id', 'ID'), Locale('en', 'US')],
       locale: const Locale('id', 'ID'),
 
       // Theme
       theme: _lightTheme,
       themeMode: ThemeMode.light,
 
-      // Error Builder yang Aman (Anti Crash Loop)
+      // Error Handling yang Aman (Mencegah Crash Loop)
       builder: (context, child) {
-        ErrorWidget.builder = (details) {
-          return const _GlobalErrorView(); 
-        };
+        ErrorWidget.builder = (details) => const _SafeErrorView();
         return child ?? const SizedBox.shrink();
       },
     );
   }
 }
 
-/* ===================== THEME ===================== */
-
+// --- CONFIG TEMA ---
 final ThemeData _lightTheme = ThemeData(
   useMaterial3: true,
   fontFamily: 'Roboto',
@@ -105,43 +100,40 @@ final ThemeData _lightTheme = ThemeData(
   ),
   cardTheme: CardTheme(
     elevation: 2,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(12),
-    ),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
   ),
 );
 
-/* ===================== ERROR UI (DIPERBAIKI) ===================== */
-
-class _GlobalErrorView extends StatelessWidget {
-  const _GlobalErrorView();
+// --- ERROR UI AMAN ---
+class _SafeErrorView extends StatelessWidget {
+  const _SafeErrorView();
 
   @override
   Widget build(BuildContext context) {
-    // FIX: Bungkus dengan Directionality agar tidak crash jika MaterialApp mati
+    // Directionality wajib ada jika MaterialApp gagal load
     return Directionality(
       textDirection: TextDirection.ltr,
       child: Scaffold(
+        backgroundColor: Colors.white,
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: const [
-                Icon(Icons.error_outline, size: 64, color: Colors.red),
+                Icon(
+                  Icons.warning_amber_rounded,
+                  size: 64,
+                  color: Colors.orange,
+                ),
                 SizedBox(height: 16),
                 Text(
-                  'Terjadi Kesalahan Aplikasi',
+                  'Sedang Memuat Aplikasi...',
                   style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.red,
+                    fontSize: 16,
+                    color: Colors.grey,
+                    decoration: TextDecoration.none,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Silakan restart aplikasi.',
                   textAlign: TextAlign.center,
                 ),
               ],

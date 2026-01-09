@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'route_names.dart';
 
-// Import Auth Provider & Pages
+// Import Auth
 import '../../auth/provider/auth_provider.dart';
 import '../../auth/pages/login_screen.dart';
 import '../../auth/pages/register_screen.dart';
 
+// Import Dashboard & Layout
+// Pastikan path ini sesuai dengan folder Anda
 import '../../features/dashboard/presentation/dashboard_page.dart';
-import '../../presentation/main_layout.dart';
+import '../../presentation/main_layout.dart'; 
 
 class AppRouter {
   final AuthProvider authProvider;
@@ -23,30 +25,25 @@ class AppRouter {
     initialLocation: RouteNames.dashboard,
     refreshListenable: authProvider,
     
-    // Logic Redirect
+    // --- Logic Redirect ---
     redirect: (context, state) {
       final bool isLoggedIn = authProvider.isAuth;
       final bool isLoading = authProvider.isLoading;
 
+      // Tunggu loading selesai
       if (isLoading) return null;
 
       final String location = state.matchedLocation;
-      final bool isGoingToLogin = location == RouteNames.login;
-      final bool isGoingToRegister = location == RouteNames.register;
+      final bool isAuthRoute = location == RouteNames.login || location == RouteNames.register;
 
-      // Jika belum login
+      // Belum Login -> Arahkan ke Login (kecuali sedang di halaman auth)
       if (!isLoggedIn) {
-        if (isGoingToLogin || isGoingToRegister) {
-          return null;
-        }
-        return RouteNames.login;
+        return isAuthRoute ? null : RouteNames.login;
       }
 
-      // Jika sudah login
-      if (isLoggedIn) {
-        if (isGoingToLogin || isGoingToRegister) {
-          return RouteNames.dashboard;
-        }
+      // Sudah Login -> Jika buka halaman auth, lempar ke Dashboard
+      if (isLoggedIn && isAuthRoute) {
+        return RouteNames.dashboard;
       }
 
       return null;
@@ -69,41 +66,26 @@ class AppRouter {
         builder: (context, state) => const RegisterScreen(),
       ),
 
-      // 3. Shell Route (Halaman Utama dengan Navbar/Sidebar)
+      // 3. Shell Route (Halaman dalam Layout)
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
         builder: (context, state, child) {
-          return MainLayout(child: child);
+          // Pastikan MainLayout ada. Jika belum ada, gunakan: Scaffold(body: child)
+          return MainLayout(child: child); 
         },
         routes: [
-          // A. Dashboard (Terhubung ke File Asli)
           GoRoute(
             path: RouteNames.dashboard,
             name: 'dashboard',
             pageBuilder: (context, state) => const NoTransitionPage(
-              child: DashboardPage(),
+              child: DashboardPage(), // Memanggil Dashboard asli
             ),
           ),
-
-          // B. Placeholder Menu Lain (Agar tidak error saat diklik)
-          GoRoute(
-            path: RouteNames.units,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: Scaffold(body: Center(child: Text("Halaman Data Kesatuan"))),
-            ),
-          ),
-          GoRoute(
-            path: RouteNames.personnel,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: Scaffold(body: Center(child: Text("Halaman Data Personel"))),
-            ),
-          ),
-          GoRoute(
-            path: RouteNames.landManagement,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: Scaffold(body: Center(child: Text("Halaman Manajemen Lahan"))),
-            ),
-          ),
+          
+          // Placeholder rute lain agar tidak error jika diklik
+          GoRoute(path: RouteNames.units, pageBuilder: (_,__) => const NoTransitionPage(child: Scaffold(body: Center(child: Text("Units"))))),
+          GoRoute(path: RouteNames.personnel, pageBuilder: (_,__) => const NoTransitionPage(child: Scaffold(body: Center(child: Text("Personnel"))))),
+          GoRoute(path: RouteNames.landManagement, pageBuilder: (_,__) => const NoTransitionPage(child: Scaffold(body: Center(child: Text("Land Management"))))),
         ],
       ),
     ],

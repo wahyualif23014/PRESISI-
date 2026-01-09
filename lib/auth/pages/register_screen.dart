@@ -41,8 +41,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Registrasi Berhasil! Silakan Login."), backgroundColor: Colors.green),
       );
-      Navigator.pop(context); // Kembali ke halaman Login
-    } else {
+      Navigator.pop(context); 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(auth.errorMessage ?? "Registrasi Gagal"), backgroundColor: Colors.red),
       );

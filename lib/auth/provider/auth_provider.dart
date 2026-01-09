@@ -16,7 +16,7 @@ class AuthProvider with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get isAuth => _user != null;
 
-  // --- FUNGSI LOGIN ---
+  // --- LOGIN ---
   Future<bool> login(String email, String password) async {
     _isLoading = true;
     _errorMessage = null;
@@ -34,9 +34,10 @@ class AuthProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return true;
-
     } catch (e) {
-      print("Error Login: $e");
+      // Gunakan debugPrint untuk log di production code
+      debugPrint("Error Login: $e");
+
       _errorMessage = e.toString().replaceAll('Exception: ', '');
       _isLoading = false;
       notifyListeners();
@@ -44,7 +45,7 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // --- FUNGSI REGISTER (INI YANG TADI HILANG/KURANG) ---
+  // --- REGISTER ---
   Future<bool> register({
     required String email,
     required String password,
@@ -57,7 +58,6 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // Memanggil fungsi signUp dari AuthService
       await _service.signUp(
         email: email,
         password: password,
@@ -70,7 +70,7 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      print("Error Register: $e");
+      debugPrint("Error Register: $e");
       _errorMessage = e.toString().replaceAll('Exception: ', '');
       _isLoading = false;
       notifyListeners();
@@ -78,23 +78,21 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // --- FUNGSI AUTO LOGIN ---
+  // --- AUTO LOGIN ---
   Future<bool> tryAutoLogin() async {
     final AuthModel? existingUser = _service.getCurrentUser();
 
     if (existingUser != null) {
       _user = existingUser;
-      
       await _storage.write(key: 'token', value: _user!.token);
-      
       notifyListeners();
       return true;
-    } 
-    
+    }
+
     return false;
   }
 
-  // --- FUNGSI LOGOUT ---
+  // --- LOGOUT ---
   Future<void> logout() async {
     await _service.signOut();
     await _storage.deleteAll();
