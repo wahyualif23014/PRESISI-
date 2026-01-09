@@ -1,332 +1,154 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:intl/date_symbol_data_local.dart'; // IMPORTANT
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+// --- IMPORT FILE ANDA ---
+import 'auth/provider/auth_provider.dart';
 import 'core/router/router_provider.dart';
 
-void main() async {
-  // WAIT untuk inisialisasi binding Flutter
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  try {
-    // INISIALISASI locale data untuk intl package
-    await initializeDateFormatting('id_ID', null);
-    
-    // INISIALISASI lainnya jika ada (shared preferences, dll)
-    // await SharedPreferences.getInstance();
-    // await Firebase.initializeApp();
-    
-    runApp(
-      const ProviderScope(
-        child: MyApp(),
-      ),
-    );
-  } catch (e) {
-    // FALLBACK jika terjadi error inisialisasi
-    print('Error initializing app: $e');
-    runApp(
-      const ProviderScope(
-        child: ErrorApp(),
-      ),
-    );
-  }
+  // 1. Setup Formatting Tanggal
+  await initializeDateFormatting('id_ID');
+
+  // 2. Inisialisasi Supabase
+  await Supabase.initialize(
+    url: 'https://hbrcteaygmjrzwjyuzje.supabase.co',
+    anonKey: 'sb_publishable_iSnXoF0gzV6j3A4-ynRwwQ_ck5tg477',
+  );
+
+  // 3. Setup Auth Provider
+  final authProvider = AuthProvider();
+  
+  // Cek Auto Login (tunggu sampai selesai)
+  await authProvider.tryAutoLogin();
+
+  // 4. Setup Router (Masukkan authProvider)
+  final appRouter = AppRouter(authProvider);
+
+  // 5. Global Error Handling (PENTING: Agar error tidak bikin blank putih)
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint(details.toString());
+  };
+
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: authProvider),
+      ],
+      // PENTING: Pastikan appRouter dikirim ke sini!
+      child: MyApp(appRouter: appRouter),
+    ),
+  );
 }
 
-class MyApp extends ConsumerWidget {
-  const MyApp({super.key});
+class MyApp extends StatelessWidget {
+  final AppRouter appRouter;
+
+  // Constructor wajib menerima appRouter
+  const MyApp({super.key, required this.appRouter});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final router = ref.watch(routerProvider);
-
+  Widget build(BuildContext context) {
     return MaterialApp.router(
       title: 'Sistem Ketahanan Pangan Presisi',
       debugShowCheckedModeBanner: false,
-      
-      // KONFIGURASI LOCALIZATION UNTUK INTEL
+
+      // --- KONEKSI ROUTER ---
+      routerConfig: appRouter.router,
+
+      // Localization
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [
-        Locale('id', 'ID'), // Bahasa Indonesia - PRIMARY
-        Locale('en', 'US'), // English - FALLBACK
+        Locale('id', 'ID'),
+        Locale('en', 'US'),
       ],
-      locale: const Locale('id', 'ID'), // Default locale Indonesia
-      
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.orange,
-          brightness: Brightness.light,
-          primary: Colors.orange,
-          secondary: Colors.green,
-        ),
-        useMaterial3: true,
-        fontFamily: 'Roboto',
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
-          elevation: 0,
-        ),
-        cardTheme: CardTheme(
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          filled: true,
-          fillColor: Colors.grey[50],
-        ),
-      ),
-      
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.orange,
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
-      
-      themeMode: ThemeMode.light, // Default light mode
-      
-      // ROUTER CONFIG
-      routerConfig: router,
-      
-      // ERROR BOUNDARY untuk handling error global
+      locale: const Locale('id', 'ID'),
+
+      // Theme
+      theme: _lightTheme,
+      themeMode: ThemeMode.light,
+
+      // Error Builder yang Aman (Anti Crash Loop)
       builder: (context, child) {
-        ErrorWidget.builder = (errorDetails) {
-          return Scaffold(
-            body: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      color: Colors.orange,
-                      size: 64,
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Terjadi Kesalahan',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: Colors.red,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Silakan restart aplikasi',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: () {
-                        // Force restart app
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(
-                              builder: (context) => const MyApp(),
-                            ),
-                            (route) => false,
-                          );
-                        });
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: const Text('Restart Aplikasi'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
+        ErrorWidget.builder = (details) {
+          return const _GlobalErrorView(); 
         };
-        
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            textScaleFactor: 1.0, // Prevent text scaling issues
-          ),
-          child: child ?? const SizedBox(),
-        );
+        return child ?? const SizedBox.shrink();
       },
     );
   }
 }
 
-// WIDGET FALLBACK untuk error startup
-class ErrorApp extends StatelessWidget {
-  const ErrorApp({super.key});
+/* ===================== THEME ===================== */
+
+final ThemeData _lightTheme = ThemeData(
+  useMaterial3: true,
+  fontFamily: 'Roboto',
+  colorScheme: ColorScheme.fromSeed(
+    seedColor: Colors.orange,
+    brightness: Brightness.light,
+  ),
+  appBarTheme: const AppBarTheme(
+    elevation: 0,
+    backgroundColor: Colors.white,
+    foregroundColor: Colors.black,
+    centerTitle: true,
+  ),
+  cardTheme: CardTheme(
+    elevation: 2,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+    ),
+  ),
+);
+
+/* ===================== ERROR UI (DIPERBAIKI) ===================== */
+
+class _GlobalErrorView extends StatelessWidget {
+  const _GlobalErrorView();
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFFF5F5F5),
-                Color(0xFFE0E0E0),
+    // FIX: Bungkus dengan Directionality agar tidak crash jika MaterialApp mati
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(Icons.error_outline, size: 64, color: Colors.red),
+                SizedBox(height: 16),
+                Text(
+                  'Terjadi Kesalahan Aplikasi',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Silakan restart aplikasi.',
+                  textAlign: TextAlign.center,
+                ),
               ],
-            ),
-          ),
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Image.asset(
-                    'assets/logo.png', 
-                    height: 100,
-                    width: 100,
-                    errorBuilder: (context, error, stackTrace) => 
-                      const Icon(Icons.eco, size: 100, color: Colors.orange),
-                  ),
-                  const SizedBox(height: 32),
-                  const Text(
-                    'SIKAP PRESISI',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.orange,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Sistem Ketahanan Pangan',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                  Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        children: [
-                          const Icon(
-                            Icons.error_outline_rounded,
-                            color: Colors.red,
-                            size: 64,
-                          ),
-                          const SizedBox(height: 20),
-                          const Text(
-                            'Aplikasi Tidak Dapat Dimulai',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.red,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'Terjadi kesalahan saat memulai aplikasi. '
-                            'Pastikan Anda memiliki koneksi internet dan coba lagi.',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 24),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              OutlinedButton(
-                                onPressed: () {
-                                  // Coba restart
-                                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                                    Navigator.of(context).pushAndRemoveUntil(
-                                      MaterialPageRoute(
-                                        builder: (context) => const MyApp(),
-                                      ),
-                                      (route) => false,
-                                    );
-                                  });
-                                },
-                                style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(color: Colors.orange),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 12,
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Coba Lagi',
-                                  style: TextStyle(color: Colors.orange),
-                                ),
-                              ),
-                              ElevatedButton(
-                                onPressed: () {
-                                  // Exit app
-                                  // SystemNavigator.pop(); // Uncomment jika ingin exit
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.orange,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 12,
-                                  ),
-                                ),
-                                child: const Text('Keluar'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                  const Text(
-                    'BIRO SDM POLDA JATIM © 2025',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
         ),
       ),
     );
-  }
-}
-
-// EXTENSION untuk handle locale fallback
-extension DateExtension on DateTime {
-  String toIndonesianDate() {
-    const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-    const monthNames = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-    ];
-    
-    return '${dayNames[weekday % 7]}, $day ${monthNames[month - 1]} $year';
-  }
-  
-  String toIndonesianTime() {
-    return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} WIB';
   }
 }

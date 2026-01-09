@@ -1,58 +1,88 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+
+// Import AuthProvider untuk mengambil data user & logout
+import '../auth/provider/auth_provider.dart';
+
+// Import Sidebar Menu Anda (Pastikan path-nya benar)
 import '../shared/widgets/sidebar_menu.dart'; 
 
-// 1. CONTROLLER SIDEBAR
-class SidebarController extends Notifier<bool> {
-  @override
-  bool build() => true;
-  void toggle() => state = !state;
+// 1. STATE MANAGEMENT SIDEBAR (Lokal untuk Layout ini saja)
+class SidebarProvider with ChangeNotifier {
+  bool _isOpen = true;
+
+  bool get isOpen => _isOpen;
+
+  void toggle() {
+    _isOpen = !_isOpen;
+    notifyListeners();
+  }
 }
 
-final sidebarOpenProvider = NotifierProvider<SidebarController, bool>(SidebarController.new);
-
 // 2. MAIN LAYOUT
-class MainLayout extends ConsumerWidget {
+class MainLayout extends StatelessWidget {
   final Widget child;
   const MainLayout({super.key, required this.child});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final bool isMobile = MediaQuery.of(context).size.width < 800;
-    final bool isSidebarOpen = ref.watch(sidebarOpenProvider);
+  Widget build(BuildContext context) {
+    // Kita bungkus Layout dengan SidebarProvider agar state sidebar hidup selama Layout aktif
+    return ChangeNotifierProvider(
+      create: (_) => SidebarProvider(),
+      child: const _MainLayoutContent(),
+    );
+  }
+}
+
+// Private Widget untuk konten agar bisa akses context SidebarProvider
+class _MainLayoutContent extends StatelessWidget {
+  const _MainLayoutContent();
+
+  @override
+  Widget build(BuildContext context) {
+    final sidebar = context.watch<SidebarProvider>();
+    final isMobile = MediaQuery.of(context).size.width < 800;
+    
+    // Jika Mobile, sidebar default tertutup. Jika Desktop, ikuti state provider.
+    final showDesktopSidebar = !isMobile && sidebar.isOpen;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F9),
+      // Drawer hanya muncul di Mobile
       drawer: isMobile ? const Drawer(child: SidebarMenu()) : null,
       
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Sidebar Desktop (Fixed)
-          if (!isMobile && isSidebarOpen)
-            const SizedBox(
-              width: 260,
-              child: SidebarMenu(),
-            ),
 
-          // Area Konten Utama
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            width: showDesktopSidebar ? 260 : 0,
+            child: showDesktopSidebar 
+              ? const SidebarMenu() // Pastikan Widget SidebarMenu Anda handle overflow
+              : null, 
+          ),
+
           Expanded(
             child: Column(
               children: [
-                // TopBar (Header dengan tombol Profil/Notif)
+                // TopBar
                 _TopBar(isMobile: isMobile),
                 
-                // Konten Halaman (Child dari Router)
                 Expanded(
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.only(topLeft: Radius.circular(16)),
-                    child: Container(
-                      color: const Color(0xFFF4F6F9),
-                      width: double.infinity,
-                      child: child, 
-                    ),
-                  ),
+                  child: Builder(builder: (context) {
+                    final mainLayout = context.findAncestorWidgetOfExactType<MainLayout>();
+                    return ClipRRect(
+                      borderRadius: const BorderRadius.only(topLeft: Radius.circular(16)),
+                      child: Container(
+                        color: const Color(0xFFF4F6F9),
+                        width: double.infinity,
+                        // Child diambil dari parent widget
+                        child: mainLayout?.child ?? const SizedBox.shrink(),
+                      ),
+                    );
+                  }),
                 ),
               ],
             ),
@@ -63,45 +93,58 @@ class MainLayout extends ConsumerWidget {
   }
 }
 
-// 3. WIDGET TOPBAR (Private)
-class _TopBar extends ConsumerWidget {
+// 3. WIDGET TOPBAR
+class _TopBar extends StatelessWidget {
   final bool isMobile;
   const _TopBar({required this.isMobile});
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final String location = GoRouterState.of(context).uri.toString();
-    final isSidebarOpen = ref.watch(sidebarOpenProvider);
+  String _getTitle(String location) {
+    if (location.contains('dashboard')) return 'Dashboard';
+    if (location.contains('units')) return 'Tingkat Kesatuan';
+    if (location.contains('positions')) return 'Jabatan';
+    if (location.contains('regions')) return 'Wilayah';
+    if (location.contains('commodities')) return 'Komoditi';
+    if (location.contains('personnel')) return 'Personel';
+    if (location.contains('land')) return 'Kelola Lahan';
+    if (location.contains('recap')) return 'Rekapitulasi';
+    return 'Presisi';
+  }
 
-    // TODO: Hubungkan data ini dengan Provider User Anda
-    const String userName = "Budi Santoso";
-    const String? profileImageUrl = null;
-    const int notificationCount = 3;
+  @override
+  Widget build(BuildContext context) {
+    final sidebar = context.watch<SidebarProvider>();
+    final auth = context.watch<AuthProvider>(); // Ambil data user
+    final String location = GoRouterState.of(context).uri.toString();
+
+    // Data User dari Provider
+    final String userName = auth.user?.nama ?? "Tamu";
+    final String userRole = auth.user?.role ?? "";
+    final String initial = userName.isNotEmpty ? userName[0].toUpperCase() : "U";
 
     return Container(
-      height: 80, 
+      height: 70, // Sedikit dikecilkan agar lebih modern
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: isMobile ? const Color(0xFFF4F6F9) : Colors.white,
-        border: isMobile ? null : const Border(bottom: BorderSide(color: Colors.black12, width: 0.5)),
+        border: isMobile ? null : Border(bottom: BorderSide(color: Colors.grey.shade200)),
       ),
-      child: SafeArea( 
+      child: SafeArea(
         bottom: false,
         child: Row(
           children: [
-            // Tombol Menu Sidebar
+            // Tombol Menu Toggle
             IconButton(
               icon: Icon(
                 isMobile 
-                    ? Icons.menu 
-                    : (isSidebarOpen ? Icons.menu_open : Icons.menu),
-                color: Colors.black87
+                  ? Icons.menu 
+                  : (sidebar.isOpen ? Icons.menu_open : Icons.menu),
+                color: Colors.black87,
               ),
               onPressed: () {
                 if (isMobile) {
                   Scaffold.of(context).openDrawer();
                 } else {
-                  ref.read(sidebarOpenProvider.notifier).toggle();
+                  context.read<SidebarProvider>().toggle();
                 }
               },
             ),
@@ -109,30 +152,85 @@ class _TopBar extends ConsumerWidget {
             
             // Judul Halaman
             Expanded(
-              child: Text(
-                _getTitle(location).toUpperCase(),
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14, 
-                  letterSpacing: 0.5,
-                  color: Colors.black87,
-                ),
-                overflow: TextOverflow.ellipsis,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _getTitle(location).toUpperCase(),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      letterSpacing: 0.5,
+                      color: Colors.black87,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  // Breadcrumb kecil opsional
+                  if (!isMobile)
+                    Text(
+                      "Sistem Ketahanan Pangan",
+                      style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                    )
+                ],
               ),
             ),
 
-            // Action Buttons (Notif & Profil)
+            // Action Buttons
             Row(
               children: [
                 _HeaderNotificationButton(
-                  count: notificationCount,
-                  onTap: () => print("Notif tapped"),
+                  count: 3, 
+                  onTap: () {},
                 ),
                 const SizedBox(width: 12),
-                _HeaderProfileButton(
-                  userName: userName,
-                  imageUrl: profileImageUrl,
-                  onTap: () => print("Profile tapped"),
+                
+                // Profil dengan Popup Menu untuk Logout
+                PopupMenuButton(
+                  offset: const Offset(0, 50),
+                  child: _HeaderProfileButton(
+                    userName: userName,
+                    initial: initial,
+                  ),
+                  onSelected: (value) {
+                    if (value == 'logout') {
+                      // Panggil fungsi logout dari AuthProvider
+                      context.read<AuthProvider>().logout();
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      enabled: false,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(userName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text(userRole, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                          const Divider(),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'profile',
+                      child: Row(
+                        children: [
+                          Icon(Icons.person, color: Colors.grey),
+                          SizedBox(width: 8),
+                          Text("Profil Saya"),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'logout',
+                      child: Row(
+                        children: [
+                          Icon(Icons.logout, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text("Keluar", style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             )
@@ -141,19 +239,9 @@ class _TopBar extends ConsumerWidget {
       ),
     );
   }
-
-  String _getTitle(String location) {
-    if (location.contains('dashboard')) return 'Dashboard';
-    if (location.contains('units')) return 'Tingkat Kesatuan';
-    if (location.contains('regions')) return 'Wilayah';
-    if (location.contains('commodities')) return 'Komoditi';
-    if (location.contains('personnel')) return 'Personel';
-    if (location.contains('land')) return 'Kelola Lahan';
-    return 'Presisi';
-  }
 }
 
-// 4. WIDGET PENDUKUNG (Private)
+// 4. WIDGET KECIL (Helper)
 class _HeaderNotificationButton extends StatelessWidget {
   final int count;
   final VoidCallback onTap;
@@ -162,68 +250,63 @@ class _HeaderNotificationButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isSmall = MediaQuery.of(context).size.width < 768;
-    return SizedBox(
-      width: isSmall ? 40 : 44,
-      height: isSmall ? 40 : 44,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(30),
-              child: Center(
-                child: Icon(Icons.notifications_outlined, color: Colors.black54, size: 22),
+    return Stack(
+      children: [
+        IconButton(
+          onPressed: onTap,
+          icon: const Icon(Icons.notifications_outlined, color: Colors.black54),
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.white,
+            shape: const CircleBorder(),
+          ),
+        ),
+        if (count > 0)
+          Positioned(
+            right: 8, top: 8,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+              child: Text(
+                '$count', 
+                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
               ),
             ),
           ),
-          if (count > 0)
-            Positioned(
-              right: 0, top: 0,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                child: Text('$count', style: const TextStyle(color: Colors.white, fontSize: 10)),
-              ),
-            ),
-        ],
-      ),
+      ],
     );
   }
 }
 
 class _HeaderProfileButton extends StatelessWidget {
   final String userName;
-  final String? imageUrl;
-  final VoidCallback onTap;
+  final String initial;
 
-  const _HeaderProfileButton({required this.userName, this.imageUrl, required this.onTap});
+  const _HeaderProfileButton({required this.userName, required this.initial});
 
   @override
   Widget build(BuildContext context) {
-    final isSmall = MediaQuery.of(context).size.width < 768;
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        width: isSmall ? 40 : 44,
-        height: isSmall ? 40 : 44,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.blueAccent.withOpacity(0.3), width: 2),
-          image: imageUrl != null 
-            ? DecorationImage(image: NetworkImage(imageUrl!), fit: BoxFit.cover) 
-            : null,
-          color: Colors.blueAccent,
-        ),
-        child: imageUrl == null
-          ? Center(child: Text(userName.isNotEmpty ? userName[0] : 'U', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)))
-          : null,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: Colors.blue.shade700,
+            child: Text(initial, style: const TextStyle(color: Colors.white, fontSize: 14)),
+          ),
+          const SizedBox(width: 8),
+          if (MediaQuery.of(context).size.width > 600)
+            Text(
+              userName, 
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+          const Icon(Icons.arrow_drop_down, color: Colors.grey),
+        ],
       ),
     );
   }

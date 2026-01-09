@@ -1,30 +1,82 @@
-// lib/core/router/router_provider.dart
-
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import 'route_names.dart';
-import '../../presentation/main_layout.dart';
+
+// Import Auth Provider & Pages
+import '../../auth/provider/auth_provider.dart';
+import '../../auth/pages/login_screen.dart';
+import '../../auth/pages/register_screen.dart';
+
 import '../../features/dashboard/presentation/dashboard_page.dart';
+import '../../presentation/main_layout.dart';
 
-// Import halaman fitur (Pastikan file-file ini dibuat nanti)
-// import '../../features/main_data/commodities/presentation/commodity_page.dart';
-// import '../../features/main_data/regions/presentation/region_page.dart';
-// ... dst
+class AppRouter {
+  final AuthProvider authProvider;
 
-final routerProvider = Provider<GoRouter>((ref) {
-  return GoRouter(
+  AppRouter(this.authProvider);
+
+  static final _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
+  static final _shellNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'shell');
+
+  late final GoRouter router = GoRouter(
+    navigatorKey: _rootNavigatorKey,
     initialLocation: RouteNames.dashboard,
-    navigatorKey: GlobalKey<NavigatorState>(),
+    refreshListenable: authProvider,
+    
+    // Logic Redirect
+    redirect: (context, state) {
+      final bool isLoggedIn = authProvider.isAuth;
+      final bool isLoading = authProvider.isLoading;
+
+      if (isLoading) return null;
+
+      final String location = state.matchedLocation;
+      final bool isGoingToLogin = location == RouteNames.login;
+      final bool isGoingToRegister = location == RouteNames.register;
+
+      // Jika belum login
+      if (!isLoggedIn) {
+        if (isGoingToLogin || isGoingToRegister) {
+          return null;
+        }
+        return RouteNames.login;
+      }
+
+      // Jika sudah login
+      if (isLoggedIn) {
+        if (isGoingToLogin || isGoingToRegister) {
+          return RouteNames.dashboard;
+        }
+      }
+
+      return null;
+    },
+
     routes: [
-      // SHELL ROUTE: Menjaga Sidebar tetap ada (Konsistensi Navigasi)
+      // 1. Login
+      GoRoute(
+        path: RouteNames.login,
+        name: 'login',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const LoginScreen(),
+      ),
+
+      // 2. Register
+      GoRoute(
+        path: RouteNames.register,
+        name: 'register',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const RegisterScreen(),
+      ),
+
+      // 3. Shell Route (Halaman Utama dengan Navbar/Sidebar)
       ShellRoute(
+        navigatorKey: _shellNavigatorKey,
         builder: (context, state, child) {
-          return MainLayout(child: child); 
+          return MainLayout(child: child);
         },
         routes: [
-          // 1. DASHBOARD (BERANDA)
+          // A. Dashboard (Terhubung ke File Asli)
           GoRoute(
             path: RouteNames.dashboard,
             name: 'dashboard',
@@ -33,138 +85,27 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
 
-          // --- GRUP DATA UTAMA ---
-
-          // 2. TINGKAT KESATUAN
+          // B. Placeholder Menu Lain (Agar tidak error saat diklik)
           GoRoute(
             path: RouteNames.units,
-            name: 'units',
-            pageBuilder: (context, state) => NoTransitionPage(
-              // Nanti ganti dengan UnitPage()
-              child: _buildPlaceholderPage(context, "Tingkat Kesatuan", "Data Polres/Polsek"), 
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: Scaffold(body: Center(child: Text("Halaman Data Kesatuan"))),
             ),
           ),
-
-          // 3. JABATAN
-          GoRoute(
-            path: RouteNames.positions,
-            name: 'positions',
-            pageBuilder: (context, state) => NoTransitionPage(
-              // Nanti ganti dengan PositionPage()
-              child: _buildPlaceholderPage(context, "Jabatan", "Data Pangkat & Jabatan"), 
-            ),
-          ),
-
-          // 4. WILAYAH
-          GoRoute(
-            path: RouteNames.regions,
-            name: 'regions',
-            pageBuilder: (context, state) => NoTransitionPage(
-              // Nanti ganti dengan RegionPage()
-              child: _buildPlaceholderPage(context, "Wilayah Administratif", "Provinsi, Kab, Kec"), 
-            ),
-          ),
-
-          // 5. KOMODITI LAHAN
-          GoRoute(
-            path: RouteNames.commodities,
-            name: 'commodities',
-            pageBuilder: (context, state) => NoTransitionPage(
-              // Nanti ganti dengan CommodityPage()
-              child: _buildPlaceholderPage(context, "Komoditi Lahan", "Jenis Tanaman Pangan"), 
-            ),
-          ),
-
-          // --- MENU LAINNYA ---
-
           GoRoute(
             path: RouteNames.personnel,
-            name: 'personnel',
-            pageBuilder: (context, state) => NoTransitionPage(
-               child: _buildPlaceholderPage(context, "Data Personel", "Daftar Anggota"), 
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: Scaffold(body: Center(child: Text("Halaman Data Personel"))),
             ),
           ),
-          
           GoRoute(
             path: RouteNames.landManagement,
-            name: 'landManagement',
-            pageBuilder: (context, state) => NoTransitionPage(
-               child: _buildPlaceholderPage(context, "Kelola Lahan", "Manajemen Lahan Polri"), 
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: Scaffold(body: Center(child: Text("Halaman Manajemen Lahan"))),
             ),
           ),
         ],
       ),
     ],
-  );
-});
-
-// --- HELPER PAGE CONTOH (Supaya tidak error saat copy-paste) ---
-// Widget ini mensimulasikan halaman dengan Header Breadcrumb untuk kembali ke beranda
-Widget _buildPlaceholderPage(BuildContext context, String title, String subtitle) {
-  return Scaffold(
-    body: Padding(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 1. BREADCRUMB (Navigasi Balik)
-          Row(
-            children: [
-              InkWell(
-                onTap: () => context.go(RouteNames.dashboard), // KEMBALI KE BERANDA
-                child: const Text(
-                  "BERANDA", 
-                  style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)
-                ),
-              ),
-              const Text("  »  ", style: TextStyle(color: Colors.grey)),
-              const Text(
-                "DATA UTAMA", 
-                style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)
-              ),
-              const Text("  »  ", style: TextStyle(color: Colors.grey)),
-              Text(
-                title.toUpperCase(), 
-                style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-
-          // 2. JUDUL HALAMAN
-          Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          Text(subtitle, style: const TextStyle(color: Colors.grey)),
-          const Divider(),
-
-          // 3. AREA KONTEN (Tabel biasanya disini)
-          Expanded(
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade300)
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.construction, size: 50, color: Colors.orange),
-                    const SizedBox(height: 10),
-                    Text("Konten $title akan ditampilkan di sini."),
-                    const SizedBox(height: 10),
-                    ElevatedButton.icon(
-                      onPressed: () => context.go(RouteNames.dashboard),
-                      icon: const Icon(Icons.home),
-                      label: const Text("Kembali ke Dashboard"),
-                    )
-                  ],
-                ),
-              ),
-            ),
-          )
-        ],
-      ),
-    ),
   );
 }
