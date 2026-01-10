@@ -9,7 +9,7 @@ import '../../auth/pages/register_screen.dart';
 
 // Import Dashboard & Layout
 // Pastikan path ini sesuai dengan folder Anda
-import '../../features/dashboard/presentation/dashboard_page.dart';
+import '../features/admin/dashboard/presentation/dashboard_page.dart';
 import '../../presentation/main_layout.dart'; 
 
 class AppRouter {

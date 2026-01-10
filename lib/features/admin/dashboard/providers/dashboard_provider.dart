@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../features/dashboard/data/model/dasboard_model.dart';
-import '../../../features/dashboard/data/services/dashboard_service.dart';
+import '../data/model/dasboard_model.dart'; // Pastikan path benar
+import '../data/services/dashboard_service.dart';
 
 class DashboardProvider with ChangeNotifier {
   final DashboardService _service = DashboardService();
@@ -17,30 +17,32 @@ class DashboardProvider with ChangeNotifier {
 
   // --- ACTIONS ---
   
-  // Fungsi untuk memuat data dashboard
   Future<void> fetchDashboardData() async {
+    // Reset state sebelum loading
     _isLoading = true;
     _errorMessage = null;
     notifyListeners(); 
 
     try {
-      // Panggil Service
+      // Memanggil service (yang sekarang mengembalikan Dummy Data)
       final result = await _service.getDashboardStats();
       
       _data = result;
       _isLoading = false;
-      notifyListeners(); // Beritahu UI data sudah siap
+      notifyListeners(); 
 
     } catch (e) {
-      print("Error Dashboard: $e");
+      debugPrint("Error Dashboard Provider: $e"); // Gunakan debugPrint
       _errorMessage = e.toString().replaceAll('Exception: ', '');
       _isLoading = false;
-      notifyListeners(); // Beritahu UI terjadi error
+      notifyListeners();
     }
   }
 
-  // Fungsi untuk refresh (misal pull-to-refresh)
+  // Fungsi Refresh
   Future<void> refresh() async {
+    // Kosongkan data dulu jika ingin efek 'bersih' saat refresh (opsional)
+    // _data = null; 
     await fetchDashboardData();
   }
 }

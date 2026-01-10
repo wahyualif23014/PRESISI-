@@ -10,7 +10,7 @@ import './router/router_provider.dart';
 
 // --- TAMBAHAN BARU: Import Dashboard Provider ---
 // Pastikan path ini sesuai dengan struktur folder Anda
-import './features/dashboard/providers/dashboard_provider.dart';
+import 'features/admin/dashboard/providers/dashboard_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,8 +38,7 @@ Future<void> main() async {
         // Gunakan .value agar instance tidak dibuat ulang (Auth)
         ChangeNotifierProvider.value(value: authProvider),
 
-        // --- TAMBAHAN BARU: Register Dashboard Provider ---
-        // Ini wajib ada agar DashboardPage bisa membaca datanya
+
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
       ],
       // Kirim router ke MyApp
