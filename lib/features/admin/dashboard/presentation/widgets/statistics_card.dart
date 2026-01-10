@@ -3,154 +3,174 @@ import 'package:flutter/material.dart';
 class StatisticsCard extends StatelessWidget {
   final String title;
   final String year;
-  final double data; // Data dari DashboardModel
+  final double data;
+  final bool isActive; // Status apakah kartu ini sedang dipilih
+  final VoidCallback onTap; // Callback saat kartu diklik
 
   const StatisticsCard({
     super.key,
     required this.title,
     required this.year,
-    required this.data, 
+    required this.data,
+    required this.isActive,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      // Hapus margin bottom di sini agar diatur oleh Wrap/LayoutBuilder di parent
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20), // Konsisten dengan Carousel
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF64748B).withOpacity(0.08), // Shadow halus
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Header Judul
-          Row(
-            children: [
-              Container(
-                width: 4, height: 16, 
-                decoration: BoxDecoration(
-                  color: Colors.orange, 
-                  borderRadius: BorderRadius.circular(2),
-                ),
-                margin: const EdgeInsets.only(right: 8),
-              ),
-              Expanded(
-                child: Text(
-                  "$title $year",
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF64748B), // Slate 500
-                    letterSpacing: 0.5,
+    // Warna background & text berubah saat aktif agar lebih menonjol
+    final bgColor = isActive ? const Color(0xFF7C6FDE) : Colors.white; // Ungu vs Putih
+    final titleColor = isActive ? Colors.white70 : const Color(0xFF64748B);
+    final valueColor = isActive ? Colors.white : const Color(0xFF0F172A);
+    final subTextColor = isActive ? Colors.white60 : const Color(0xFF94A3B8);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        // Lebar akan diatur oleh Parent (Flex/Expanded), jadi di sini kita atur margin/padding
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: isActive 
+                  ? const Color(0xFF7C6FDE).withOpacity(0.3) 
+                  : const Color(0xFF64748B).withOpacity(0.08),
+              blurRadius: isActive ? 12 : 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+          border: isActive ? null : Border.all(color: Colors.grey.shade200),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Judul
+            Row(
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  width: 4, height: 16,
+                  decoration: BoxDecoration(
+                    color: isActive ? Colors.white : Colors.orange,
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  margin: const EdgeInsets.only(right: 8),
                 ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          // Konten Utama
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              // Angka Besar
-              Expanded(
-                flex: 5,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _formatNumber(data),
-                      style: const TextStyle(
-                        fontSize: 26, 
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF0F172A), // Slate 900
-                        height: 1.0,
-                      ),
+                Expanded(
+                  child: Text(
+                    "$title $year",
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: titleColor,
+                      letterSpacing: 0.5,
                     ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      "HEKTAR (HA)",
-                      style: TextStyle(
-                        fontSize: 10, 
-                        fontWeight: FontWeight.bold, 
-                        color: Color(0xFF94A3B8), // Slate 400
-                      ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // Angka Utama
+            Text(
+              _formatNumber(data),
+              style: TextStyle(
+                fontSize: isActive ? 28 : 22, // Membesar saat aktif
+                fontWeight: FontWeight.w800,
+                color: valueColor,
+                height: 1.0,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              "HEKTAR (HA)",
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: subTextColor,
+              ),
+            ),
+
+
+            AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                height: isActive ? null : 0, // Tinggi 0 jika tidak aktif
+                child: Column(
+                  children: [
+                    const SizedBox(height: 16),
+                    Divider(color: isActive ? Colors.white24 : Colors.grey.shade100),
+                    const SizedBox(height: 12),
+                    
+                    // Detail Breakdown
+                    _buildLegendItem("Produktif", data * 0.65, isActive ? Colors.white : Colors.blue, isActive),
+                    const SizedBox(height: 6),
+                    _buildLegendItem("Cadangan", data * 0.35, isActive ? Colors.white : Colors.orange, isActive),
+                    
+                    const SizedBox(height: 12),
+                    // Indikator Trend
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: isActive ? Colors.white24 : const Color(0xFFDCFCE7),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Icon(
+                            Icons.trending_up, 
+                            color: isActive ? Colors.white : const Color(0xFF166534), 
+                            size: 14
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          "+2.4% vs lalu",
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: isActive ? Colors.white : const Color(0xFF166534),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              
-              // Breakdown (Visual Dummy Proporsional)
-              Expanded(
-                flex: 6,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    _buildLegendItem("Produktif", data * 0.65, Colors.blue),
-                    const SizedBox(height: 4),
-                    _buildLegendItem("Cadangan", data * 0.35, Colors.orange),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 12),
-          Divider(height: 1, color: Colors.grey.shade100),
-          const SizedBox(height: 8),
-
-          // Footer: Indikator Kenaikan
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDCFCE7), // Green 100
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Icon(Icons.trending_up, color: Color(0xFF166534), size: 14),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                "+2.4% dari tahun lalu",
-                style: TextStyle(
-                  fontWeight: FontWeight.w600, 
-                  color: Color(0xFF166534), // Green 800
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildLegendItem(String label, double value, Color color) {
+  Widget _buildLegendItem(String label, double value, Color color, bool isDarkBg) {
     return Row(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+          style: TextStyle(
+            fontSize: 11, 
+            color: isDarkBg ? Colors.white70 : const Color(0xFF64748B)
+          ),
         ),
-        const SizedBox(width: 6),
         Text(
           _formatNumber(value),
-          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+          style: TextStyle(
+            fontSize: 11, 
+            fontWeight: FontWeight.bold, 
+            color: color
+          ),
         ),
       ],
     );
