@@ -11,6 +11,8 @@ import 'widgets/lahan_stat_card.dart'; // Widget baru
 import 'widgets/Total_Hasil_Panen.dart';
 import 'widgets/carousel.dart';
 import 'widgets/quarterly_stats_section.dart';
+import 'widgets/distribution_card.dart';
+import 'widgets/resapan_card.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -197,6 +199,55 @@ class _DashboardPageState extends State<DashboardPage> {
                   const SizedBox(height: 12),
 
                   TotalSummarySection(items: dashboard.data!.summaryData),
+                  const SizedBox(height: 32),
+
+                  _buildSectionTitle("Peta Penyebaran Potensi Lahan"),
+                  const SizedBox(height: 50),
+                  Row(
+                    children: [
+                      // --- KARTU 1: TOTAL TITIK LAHAN (Biru & Ungu) ---
+                      Expanded(
+                        child: DistributionCard(
+                          title:
+                              data
+                                  .totalTitikLahan
+                                  .label, // Ambil dari Model: "Total Titik Lahan"
+                          totalValue:
+                              data
+                                  .totalTitikLahan
+                                  .total, // Ambil dari Model: 90
+                          chartColors: const [
+                            Color(0xFF3B82F6), // Biru
+                            Color(0xFFC084FC), // Ungu
+                          ],
+
+                          proportions: const [0.5, 0.5],
+                        ),
+                      ),
+
+                      const SizedBox(width: 16), // Jarak antar kartu
+                      Expanded(
+                        child: DistributionCard(
+                          title:
+                              data
+                                  .pengelolaLahan
+                                  .label, // "Pengelolah Lahan Polsek"
+                          totalValue: data.pengelolaLahan.total, // 203
+                          chartColors: const [
+                            Color(0xFFEF4444), // Merah
+                            Color(0xFF22C55E), // Hijau
+                          ],
+
+                          proportions: const [0.15, 0.85],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 32),
+                  _buildSectionTitle("Total Resapan Per Tahun"),
+                  const SizedBox(height: 12),
+                  ResapanCard(data: data.resapanData),
                 ],
               );
             },

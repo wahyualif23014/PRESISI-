@@ -8,7 +8,7 @@ class LahanStatCard extends StatelessWidget {
   final String title;
   final LahanGroup data;
   final Color backgroundColor;
-  final CardLayoutType layoutType; // Menentukan bentuk layout (List vs Grid)
+  final CardLayoutType layoutType; 
 
   const LahanStatCard({
     super.key,
